@@ -102,7 +102,7 @@ const SocketContext = createContext<SocketContextType | null>(null);
 // SOCKET PROVIDER
 // =============================================================================
 
-const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001';
+const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'https://monopoly-g58e.onrender.com';
 
 export function SocketProvider({ children }: { children: ReactNode }) {
   // Connection state
