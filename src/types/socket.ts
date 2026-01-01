@@ -216,6 +216,8 @@ export interface ServerToClientEvents {
   'auction:bid': (data: { playerId: string; amount: number }) => void;
   'auction:playerPassed': (data: { playerId: string }) => void;
   'auction:ended': (data: { winnerId: string | null; propertyId: number; amount: number }) => void;
+  'auction:tick': (data: { timeRemaining: number; currentBid: number; currentBidderId: string | null }) => void;
+  'turn:timeout': (data: { playerId: string }) => void;
   'trade:proposed': (data: { trade: TradeOffer }) => void;
   'trade:accepted': (data: { tradeId: string }) => void;
   'trade:rejected': (data: { tradeId: string }) => void;
@@ -225,7 +227,7 @@ export interface ServerToClientEvents {
   'player:ready': (data: { playerId: string; isReady: boolean }) => void;
   'player:moneyChanged': (data: { playerId: string; amount: number; newBalance: number }) => void;
   'player:bankrupt': (data: { playerId: string }) => void;
-  'chat:message': (data: { playerId: string; playerName: string; message: string; timestamp: number }) => void;
+  'chat:message': (data: { playerId: string; playerName: string; playerColor?: string; message: string; timestamp: number }) => void;
   'error': (data: { code: string; message: string }) => void;
 }
 

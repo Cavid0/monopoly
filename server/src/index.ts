@@ -33,6 +33,200 @@ const io = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer, {
 app.use(cors());
 app.use(express.json());
 
+// =============================================================================
+// TURN TIMEOUT MANAGER
+// =============================================================================
+
+class TurnTimeoutManager {
+  private turnTimers: Map<string, NodeJS.Timeout> = new Map();
+  private auctionTimers: Map<string, NodeJS.Timeout> = new Map();
+  
+  startTurnTimer(roomId: string, playerId: string, timeLimit: number) {
+    this.clearTurnTimer(roomId);
+    
+    // Emit turn:started event
+    io.to(roomId).emit('turn:started', { playerId, timeLimit });
+    
+    const timer = setTimeout(() => {
+      this.handleTurnTimeout(roomId, playerId);
+    }, timeLimit * 1000);
+    
+    this.turnTimers.set(roomId, timer);
+  }
+  
+  clearTurnTimer(roomId: string) {
+    const timer = this.turnTimers.get(roomId);
+    if (timer) {
+      clearTimeout(timer);
+      this.turnTimers.delete(roomId);
+    }
+  }
+  
+  private handleTurnTimeout(roomId: string, playerId: string) {
+    const room = roomManager.getRoom(roomId);
+    const engine = roomManager.getEngine(roomId);
+    if (!room || !engine) return;
+    
+    const state = engine.getState();
+    
+    // Skip if not this player's turn anymore
+    if (state.currentPlayerId !== playerId) return;
+    
+    console.log(`Turn timeout for player ${playerId} in room ${roomId}`);
+    
+    // Auto-action based on current phase
+    if (state.turnPhase === 'roll' || state.turnPhase === 'jail-decision') {
+      // Auto-roll dice
+      const rollResult = roomManager.rollDice(playerId);
+      if (rollResult) {
+        io.to(roomId).emit('turn:diceRolled', {
+          playerId,
+          dice: rollResult.dice,
+          isDoubles: rollResult.isDoubles,
+        });
+        
+        // Auto-move
+        const moveResult = roomManager.movePlayer(playerId);
+        if (moveResult) {
+          io.to(roomId).emit('turn:playerMoved', {
+            playerId,
+            from: moveResult.from,
+            to: moveResult.to,
+            passedGo: moveResult.passedGo,
+          });
+        }
+        
+        // Handle card if needed
+        const afterRoll = roomManager.getRoomByPlayer(playerId);
+        if (afterRoll?.state.turnPhase === 'card') {
+          const card = roomManager.drawCard(playerId);
+          if (card) {
+            io.to(roomId).emit('card:drawn', { playerId, card });
+          }
+        }
+      }
+    }
+    
+    if (state.turnPhase === 'action') {
+      // Auto-decline property (triggers auction)
+      roomManager.declineProperty(playerId);
+      const afterDecline = roomManager.getRoom(roomId);
+      if (afterDecline?.state.auction) {
+        const property = afterDecline.state.properties.find(
+          p => p.id === afterDecline.state.auction?.propertyId
+        );
+        io.to(roomId).emit('auction:started', {
+          auction: afterDecline.state.auction,
+          property: property!,
+        });
+      }
+    }
+    
+    // Get updated state
+    const updatedRoom = roomManager.getRoom(roomId);
+    if (!updatedRoom) return;
+    
+    // If in end phase, end turn
+    if (updatedRoom.state.turnPhase === 'end') {
+      roomManager.endTurn(playerId);
+      const finalRoom = roomManager.getRoom(roomId);
+      if (finalRoom) {
+        io.to(roomId).emit('turn:ended', {
+          playerId,
+          nextPlayerId: finalRoom.state.currentPlayerId,
+        });
+        
+        // Start timer for next player
+        if (finalRoom.state.gamePhase === 'playing') {
+          this.startTurnTimer(
+            roomId,
+            finalRoom.state.currentPlayerId,
+            finalRoom.state.settings.turnTimeLimit
+          );
+          io.to(roomId).emit('turn:started', {
+            playerId: finalRoom.state.currentPlayerId,
+            timeLimit: finalRoom.state.settings.turnTimeLimit,
+          });
+        }
+      }
+    }
+    
+    // Broadcast timeout event
+    io.to(roomId).emit('turn:timeout', { playerId });
+    io.to(roomId).emit('game:stateUpdate', { state: updatedRoom.state });
+  }
+  
+  // Auction timer
+  startAuctionTimer(roomId: string) {
+    this.clearAuctionTimer(roomId);
+    this.tickAuction(roomId);
+  }
+  
+  clearAuctionTimer(roomId: string) {
+    const timer = this.auctionTimers.get(roomId);
+    if (timer) {
+      clearTimeout(timer);
+      this.auctionTimers.delete(roomId);
+    }
+  }
+  
+  private tickAuction(roomId: string) {
+    const room = roomManager.getRoom(roomId);
+    const engine = roomManager.getEngine(roomId);
+    if (!room || !engine || !room.state.auction) return;
+    
+    const auction = room.state.auction;
+    
+    if (auction.timeRemaining <= 0 || !auction.isActive) {
+      // End auction
+      engine.endAuction();
+      const finalRoom = roomManager.getRoom(roomId);
+      if (finalRoom) {
+        io.to(roomId).emit('auction:ended', {
+          winnerId: auction.currentBidderId,
+          propertyId: auction.propertyId,
+          amount: auction.currentBid,
+        });
+        io.to(roomId).emit('game:stateUpdate', { state: finalRoom.state });
+        
+        // Resume turn timer for current player
+        if (finalRoom.state.gamePhase === 'playing') {
+          this.startTurnTimer(
+            roomId,
+            finalRoom.state.currentPlayerId,
+            finalRoom.state.settings.turnTimeLimit
+          );
+        }
+      }
+      return;
+    }
+    
+    // Decrement timer
+    auction.timeRemaining--;
+    io.to(roomId).emit('auction:tick', { 
+      timeRemaining: auction.timeRemaining,
+      currentBid: auction.currentBid,
+      currentBidderId: auction.currentBidderId,
+    });
+    
+    // Schedule next tick
+    const timer = setTimeout(() => this.tickAuction(roomId), 1000);
+    this.auctionTimers.set(roomId, timer);
+  }
+  
+  resetAuctionTimer(roomId: string, newTime: number = 15) {
+    const room = roomManager.getRoom(roomId);
+    if (room?.state.auction) {
+      room.state.auction.timeRemaining = newTime;
+    }
+  }
+}
+
+const timeoutManager = new TurnTimeoutManager();
+
+app.use(cors());
+app.use(express.json());
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   const stats = roomManager.getStats();
@@ -199,6 +393,13 @@ io.on('connection', (socket) => {
         playerId: updatedRoom.state.currentPlayerId,
         timeLimit: updatedRoom.state.settings.turnTimeLimit,
       });
+      
+      // Start turn timer
+      timeoutManager.startTurnTimer(
+        updatedRoom.id,
+        updatedRoom.state.currentPlayerId,
+        updatedRoom.state.settings.turnTimeLimit
+      );
     }
   });
 
@@ -302,6 +503,10 @@ io.on('connection', (socket) => {
           auction: room.state.auction,
           property: property!,
         });
+        
+        // Start auction timer
+        timeoutManager.clearTurnTimer(room.id);
+        timeoutManager.startAuctionTimer(room.id);
       }
       io.to(room.id).emit('game:stateUpdate', { state: room.state });
     }
@@ -321,6 +526,9 @@ io.on('connection', (socket) => {
 
     const updatedRoom = roomManager.getRoomByPlayer(socket.id);
     if (updatedRoom) {
+      // Clear previous turn timer
+      timeoutManager.clearTurnTimer(updatedRoom.id);
+      
       io.to(updatedRoom.id).emit('turn:ended', { 
         playerId: socket.id,
         nextPlayerId: updatedRoom.state.currentPlayerId,
@@ -335,6 +543,13 @@ io.on('connection', (socket) => {
           playerId: updatedRoom.state.currentPlayerId,
           timeLimit: updatedRoom.state.settings.turnTimeLimit,
         });
+        
+        // Start turn timer for next player
+        timeoutManager.startTurnTimer(
+          updatedRoom.id,
+          updatedRoom.state.currentPlayerId,
+          updatedRoom.state.settings.turnTimeLimit
+        );
       }
     }
   });
@@ -427,6 +642,9 @@ io.on('connection', (socket) => {
 
     const room = roomManager.getRoomByPlayer(socket.id);
     if (room) {
+      // Reset auction timer on new bid
+      timeoutManager.resetAuctionTimer(room.id, 15);
+      
       io.to(room.id).emit('auction:bid', { playerId: socket.id, amount });
       io.to(room.id).emit('game:stateUpdate', { state: room.state });
     }

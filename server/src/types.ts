@@ -313,6 +313,10 @@ export interface ServerToClientEvents {
   'auction:bid': (data: { playerId: string; amount: number }) => void;
   'auction:playerPassed': (data: { playerId: string }) => void;
   'auction:ended': (data: { winnerId: string | null; propertyId: number; amount: number }) => void;
+  'auction:tick': (data: { timeRemaining: number; currentBid: number; currentBidderId: string | null }) => void;
+  
+  // Turn timeout
+  'turn:timeout': (data: { playerId: string }) => void;
   
   // Trade events
   'trade:proposed': (data: { trade: TradeOffer }) => void;

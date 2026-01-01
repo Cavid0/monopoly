@@ -422,6 +422,292 @@ function ColorSelection() {
 }
 
 // =============================================================================
+// PROPERTY DETAIL MODAL
+// =============================================================================
+
+interface PropertyModalProps {
+  property: any;
+  owner: any;
+  canBuild: boolean;
+  canSell: boolean;
+  canMortgage: boolean;
+  onClose: () => void;
+  onBuildHouse: () => void;
+  onSellHouse: () => void;
+  onMortgage: () => void;
+  onUnmortgage: () => void;
+}
+
+function PropertyModal({ 
+  property, 
+  owner, 
+  canBuild, 
+  canSell, 
+  canMortgage, 
+  onClose, 
+  onBuildHouse, 
+  onSellHouse,
+  onMortgage,
+  onUnmortgage
+}: PropertyModalProps) {
+  const boardData = BOARD_DATA[property.id];
+  const groupColor = boardData?.group ? GROUP_COLORS[boardData.group] : '#666';
+  
+  return (
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={onClose}>
+      <div 
+        className="bg-[#252035] rounded-2xl p-6 w-full max-w-sm border border-[#3d3654]"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Property Header */}
+        <div 
+          className="h-16 rounded-t-xl flex items-center justify-center mb-4"
+          style={{ backgroundColor: groupColor }}
+        >
+          <span className="text-2xl mr-2">{boardData?.flag || '🏠'}</span>
+          <h2 className="text-xl font-bold text-white">{property.name}</h2>
+        </div>
+        
+        {/* Property Info */}
+        <div className="space-y-3 mb-6">
+          <div className="flex justify-between text-gray-300">
+            <span>Qiymət:</span>
+            <span className="text-white font-bold">${property.price}</span>
+          </div>
+          <div className="flex justify-between text-gray-300">
+            <span>Girov dəyəri:</span>
+            <span className="text-white">${property.mortgageValue}</span>
+          </div>
+          <div className="flex justify-between text-gray-300">
+            <span>Ev qiyməti:</span>
+            <span className="text-white">${property.houseCost}</span>
+          </div>
+          <div className="flex justify-between text-gray-300">
+            <span>Hazırki evlər:</span>
+            <span className="text-yellow-400">
+              {property.houses === 5 ? '🏨 Hotel' : property.houses > 0 ? '🏠'.repeat(property.houses) : 'Yoxdur'}
+            </span>
+          </div>
+          {owner && (
+            <div className="flex justify-between items-center text-gray-300">
+              <span>Sahib:</span>
+              <div className="flex items-center gap-2">
+                <div 
+                  className="w-6 h-6 rounded-full"
+                  style={{ backgroundColor: owner.color }}
+                />
+                <span className="text-white">{owner.name}</span>
+              </div>
+            </div>
+          )}
+          {property.isMortgaged && (
+            <div className="text-center py-2 bg-red-500/20 rounded-lg text-red-400">
+              ⚠️ Bu mülk girovdadır
+            </div>
+          )}
+        </div>
+        
+        {/* Rent Table */}
+        <div className="bg-[#1a1625] rounded-lg p-3 mb-6">
+          <h3 className="text-gray-400 text-sm mb-2">Kira cədvəli</h3>
+          <div className="grid grid-cols-2 gap-2 text-sm">
+            <div className="text-gray-300">Əsas kira:</div>
+            <div className="text-white text-right">${property.rent?.[0] || 0}</div>
+            <div className="text-gray-300">1 ev ilə:</div>
+            <div className="text-white text-right">${property.rent?.[1] || 0}</div>
+            <div className="text-gray-300">2 ev ilə:</div>
+            <div className="text-white text-right">${property.rent?.[2] || 0}</div>
+            <div className="text-gray-300">3 ev ilə:</div>
+            <div className="text-white text-right">${property.rent?.[3] || 0}</div>
+            <div className="text-gray-300">4 ev ilə:</div>
+            <div className="text-white text-right">${property.rent?.[4] || 0}</div>
+            <div className="text-gray-300">Hotel ilə:</div>
+            <div className="text-white text-right">${property.rent?.[5] || 0}</div>
+          </div>
+        </div>
+        
+        {/* Actions */}
+        <div className="space-y-2">
+          {canBuild && !property.isMortgaged && (
+            <button
+              onClick={onBuildHouse}
+              className="w-full bg-green-500 hover:bg-green-600 text-white py-3 rounded-xl font-bold"
+            >
+              🏠 Ev tik (${property.houseCost})
+            </button>
+          )}
+          {canSell && (
+            <button
+              onClick={onSellHouse}
+              className="w-full bg-yellow-500 hover:bg-yellow-600 text-white py-3 rounded-xl font-bold"
+            >
+              💰 Ev sat (+${property.houseCost / 2})
+            </button>
+          )}
+          {canMortgage && !property.isMortgaged && property.houses === 0 && (
+            <button
+              onClick={onMortgage}
+              className="w-full bg-orange-500 hover:bg-orange-600 text-white py-3 rounded-xl font-bold"
+            >
+              📜 Girov qoy (+${property.mortgageValue})
+            </button>
+          )}
+          {property.isMortgaged && (
+            <button
+              onClick={onUnmortgage}
+              className="w-full bg-blue-500 hover:bg-blue-600 text-white py-3 rounded-xl font-bold"
+            >
+              🔓 Girovdan çıxar (-${Math.ceil(property.mortgageValue * 1.1)})
+            </button>
+          )}
+          <button
+            onClick={onClose}
+            className="w-full bg-[#3d3654] hover:bg-[#4d4670] text-white py-3 rounded-xl font-medium"
+          >
+            Bağla
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
+// AUCTION MODAL
+// =============================================================================
+
+interface AuctionModalProps {
+  auction: any;
+  property: any;
+  players: any[];
+  currentPlayerId: string | null;
+  timeLeft: number;
+  onBid: (amount: number) => void;
+  onPass: () => void;
+}
+
+function AuctionModal({ auction, property, players, currentPlayerId, timeLeft, onBid, onPass }: AuctionModalProps) {
+  const [bidAmount, setBidAmount] = useState(auction.currentBid + 10);
+  const boardData = BOARD_DATA[property?.id];
+  const groupColor = boardData?.group ? GROUP_COLORS[boardData.group] : '#666';
+  const currentBidder = players.find(p => p.id === auction.currentBidderId);
+  const isParticipant = auction.participants.includes(currentPlayerId);
+  
+  const quickBids = [10, 25, 50, 100];
+  
+  return (
+    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+      <div className="bg-[#252035] rounded-2xl p-6 w-full max-w-md border border-[#3d3654]">
+        {/* Header */}
+        <div className="text-center mb-6">
+          <h2 className="text-2xl font-bold text-[#8b5cf6] mb-2">🔨 HƏRRAC</h2>
+          <div 
+            className="inline-block px-6 py-3 rounded-xl"
+            style={{ backgroundColor: groupColor }}
+          >
+            <span className="text-xl mr-2">{boardData?.flag || '🏠'}</span>
+            <span className="text-lg font-bold text-white">{property?.name}</span>
+          </div>
+        </div>
+        
+        {/* Timer */}
+        <div className="text-center mb-6">
+          <div className={`text-5xl font-bold ${timeLeft <= 5 ? 'text-red-400 animate-pulse' : 'text-white'}`}>
+            {timeLeft}s
+          </div>
+          <div className="w-full bg-[#1a1625] rounded-full h-2 mt-2">
+            <div 
+              className="bg-[#8b5cf6] h-2 rounded-full transition-all"
+              style={{ width: `${(timeLeft / 30) * 100}%` }}
+            />
+          </div>
+        </div>
+        
+        {/* Current Bid */}
+        <div className="bg-[#1a1625] rounded-xl p-4 mb-6 text-center">
+          <div className="text-gray-400 text-sm mb-1">Hazırki təklif</div>
+          <div className="text-3xl font-bold text-green-400">${auction.currentBid}</div>
+          {currentBidder && (
+            <div className="flex items-center justify-center gap-2 mt-2">
+              <div 
+                className="w-6 h-6 rounded-full"
+                style={{ backgroundColor: currentBidder.color }}
+              />
+              <span className="text-white">{currentBidder.name}</span>
+            </div>
+          )}
+        </div>
+        
+        {/* Bid Controls */}
+        {isParticipant && (
+          <>
+            <div className="flex gap-2 mb-4">
+              {quickBids.map(add => (
+                <button
+                  key={add}
+                  onClick={() => setBidAmount(auction.currentBid + add)}
+                  className="flex-1 bg-[#3d3654] hover:bg-[#4d4670] text-white py-2 rounded-lg text-sm"
+                >
+                  +${add}
+                </button>
+              ))}
+            </div>
+            
+            <div className="flex gap-2 mb-4">
+              <input
+                type="number"
+                value={bidAmount}
+                onChange={e => setBidAmount(Math.max(auction.currentBid + 1, parseInt(e.target.value) || 0))}
+                className="flex-1 bg-[#1a1625] text-white text-center text-xl font-bold px-4 py-3 rounded-xl"
+                min={auction.currentBid + 1}
+              />
+            </div>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={onPass}
+                className="flex-1 bg-red-500/20 hover:bg-red-500/30 text-red-400 py-3 rounded-xl font-bold"
+              >
+                ❌ Çıx
+              </button>
+              <button
+                onClick={() => onBid(bidAmount)}
+                disabled={bidAmount <= auction.currentBid}
+                className="flex-1 bg-green-500 hover:bg-green-600 text-white py-3 rounded-xl font-bold disabled:opacity-50"
+              >
+                💰 Təklif ver
+              </button>
+            </div>
+          </>
+        )}
+        
+        {!isParticipant && (
+          <div className="text-center text-gray-400 py-4">
+            Hərracdan çıxmısınız
+          </div>
+        )}
+        
+        {/* Participants */}
+        <div className="mt-4 pt-4 border-t border-[#3d3654]">
+          <div className="text-gray-400 text-sm mb-2">İştirakçılar ({auction.participants.length})</div>
+          <div className="flex gap-2 flex-wrap">
+            {players.filter(p => auction.participants.includes(p.id)).map(p => (
+              <div 
+                key={p.id}
+                className="flex items-center gap-1 bg-[#1a1625] px-2 py-1 rounded-lg"
+              >
+                <div className="w-4 h-4 rounded-full" style={{ backgroundColor: p.color }} />
+                <span className="text-white text-sm">{p.name}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
 // GAME SCREEN - RICHUP.IO STYLE
 // =============================================================================
 
@@ -443,13 +729,58 @@ function GameScreen() {
     sendMessage,
     getPropertyOwner,
     declareBankruptcy,
+    buildHouse,
+    sellHouse,
+    mortgageProperty,
+    unmortgageProperty,
+    placeBid,
+    passAuction,
+    canBuildHouse,
+    hasMonopoly,
+    socket,
   } = useSocket();
 
   const [chatInput, setChatInput] = useState('');
   const [copied, setCopied] = useState(false);
   const [showTradeModal, setShowTradeModal] = useState(false);
+  const [selectedProperty, setSelectedProperty] = useState<any>(null);
+  const [turnTimeLeft, setTurnTimeLeft] = useState(60);
+  const [auctionTimeLeft, setAuctionTimeLeft] = useState(30);
   const [diceAnimating, setDiceAnimating] = useState(false);
   const [animatedDice, setAnimatedDice] = useState<[number, number]>([1, 1]);
+
+  // Listen for auction ticks
+  useEffect(() => {
+    if (!socket) return;
+    
+    const handleAuctionTick = (data: { timeRemaining: number; currentBid: number; currentBidderId: string | null }) => {
+      setAuctionTimeLeft(data.timeRemaining);
+    };
+    
+    const handleTurnStarted = (data: { playerId: string; timeLimit: number }) => {
+      setTurnTimeLeft(data.timeLimit);
+    };
+    
+    socket.on('auction:tick', handleAuctionTick);
+    socket.on('turn:started', handleTurnStarted);
+    
+    return () => {
+      socket.off('auction:tick', handleAuctionTick);
+      socket.off('turn:started', handleTurnStarted);
+    };
+  }, [socket]);
+  
+  // Turn countdown timer
+  useEffect(() => {
+    if (!gameState || gameState.gamePhase !== 'playing') return;
+    if (gameState.auction) return; // Don't count down during auction
+    
+    const timer = setInterval(() => {
+      setTurnTimeLeft(prev => Math.max(0, prev - 1));
+    }, 1000);
+    
+    return () => clearInterval(timer);
+  }, [gameState?.currentPlayerId, gameState?.gamePhase, gameState?.auction]);
 
   if (!gameState) return null;
 
@@ -666,6 +997,20 @@ function GameScreen() {
 
         {/* Dice and Roll Button - Center Overlay */}
         <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+          {/* Turn Timer */}
+          {currentTurnPlayer && (
+            <div className="mb-4 flex items-center gap-3 bg-[#252035] px-4 py-2 rounded-xl border border-[#3d3654] pointer-events-auto">
+              <div 
+                className="w-6 h-6 rounded-full border-2 border-white"
+                style={{ backgroundColor: currentTurnPlayer.color }}
+              />
+              <span className="text-white font-medium">{currentTurnPlayer.name}</span>
+              <div className={`ml-2 px-3 py-1 rounded-lg text-sm font-bold ${turnTimeLeft <= 10 ? 'bg-red-500 animate-pulse' : 'bg-[#8b5cf6]'}`}>
+                ⏱️ {turnTimeLeft}s
+              </div>
+            </div>
+          )}
+          
           {/* Dice Display */}
           <div className="flex items-center gap-6 mb-6 pointer-events-auto">
             {renderDiceFace(displayDice[0])}
@@ -826,7 +1171,8 @@ function GameScreen() {
               return (
                 <div
                   key={prop.id}
-                  className="bg-[#252035] rounded-lg p-3 flex items-center gap-3"
+                  onClick={() => setSelectedProperty(prop)}
+                  className="bg-[#252035] rounded-lg p-3 flex items-center gap-3 cursor-pointer hover:bg-[#302548] transition-colors"
                 >
                   <div
                     className="w-8 h-10 rounded flex items-center justify-center text-lg"
@@ -855,6 +1201,40 @@ function GameScreen() {
           </div>
         </div>
       </div>
+
+      {/* Auction Modal */}
+      {gameState.auction && (
+        <AuctionModal
+          auction={gameState.auction}
+          property={gameState.properties.find((p: any) => p.id === gameState.auction?.propertyId)}
+          players={gameState.players}
+          currentPlayerId={playerId}
+          timeLeft={auctionTimeLeft}
+          onBid={placeBid}
+          onPass={passAuction}
+        />
+      )}
+
+      {/* Property Modal */}
+      {selectedProperty && (() => {
+        const propOwner = gameState.players.find((p: any) => p.id === selectedProperty.ownerId);
+        const canSell = selectedProperty.houses > 0;
+        const canMort = !selectedProperty.isMortgaged && selectedProperty.houses === 0;
+        return (
+          <PropertyModal
+            property={selectedProperty}
+            owner={propOwner}
+            canBuild={canBuildHouse(selectedProperty.id)}
+            canSell={canSell}
+            canMortgage={canMort}
+            onClose={() => setSelectedProperty(null)}
+            onBuildHouse={() => buildHouse(selectedProperty.id)}
+            onSellHouse={() => sellHouse(selectedProperty.id)}
+            onMortgage={() => mortgageProperty(selectedProperty.id)}
+            onUnmortgage={() => unmortgageProperty(selectedProperty.id)}
+          />
+        );
+      })()}
     </div>
   );
 }
