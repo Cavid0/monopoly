@@ -38,35 +38,27 @@ export default function Lobby() {
   const handlePlay = () => {
     if (!playerName.trim()) return;
     
-    // Create room and add player
+    // Create room code and redirect to room page
     const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-    dispatch({ type: 'SET_ROOM', payload: code });
-    dispatch({
-      type: 'ADD_PLAYER',
-      payload: { name: playerName, isHost: true }
-    });
-    // Go to character selection phase
-    setTimeout(() => {
-      dispatch({ type: 'SET_GAME_PHASE', payload: 'character-select' });
-    }, 100);
+    // Store player name in sessionStorage for the room page
+    sessionStorage.setItem('playerName', playerName.trim());
+    sessionStorage.setItem('isHost', 'true');
+    // Redirect to room URL
+    window.location.href = `/room/${code}`;
   };
 
   const handleCreatePrivate = () => {
     if (!playerName.trim()) {
-      alert('Please enter your name first!');
+      alert('Əvvəlcə adınızı daxil edin!');
       return;
     }
-    // Create private room
+    // Create room code and redirect to room page
     const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-    dispatch({ type: 'SET_ROOM', payload: code });
-    dispatch({
-      type: 'ADD_PLAYER',
-      payload: { name: playerName, isHost: true }
-    });
-    // Go to character selection phase
-    setTimeout(() => {
-      dispatch({ type: 'SET_GAME_PHASE', payload: 'character-select' });
-    }, 100);
+    // Store player name in sessionStorage for the room page
+    sessionStorage.setItem('playerName', playerName.trim());
+    sessionStorage.setItem('isHost', 'true');
+    // Redirect to room URL
+    window.location.href = `/room/${code}`;
   };
 
   // Room is created, waiting for phase change
@@ -104,7 +96,7 @@ export default function Lobby() {
           <span className="text-[#8b5cf6]">UP</span>
           <span className="text-gray-400">.IO</span>
         </h1>
-        <p className="text-[#8b5cf6] text-lg mb-10">Rule the economy</p>
+        <p className="text-[#8b5cf6] text-lg mb-10">Ekonomiyanı idarə et</p>
 
         {/* Name Input */}
         <div className="w-full max-w-md mb-4">
@@ -112,7 +104,7 @@ export default function Lobby() {
             type="text"
             value={playerName}
             onChange={(e) => setPlayerName(e.target.value)}
-            placeholder="Enter your name..."
+            placeholder="Adınızı daxil edin..."
             className="w-full bg-[#3d3654] text-white px-6 py-4 rounded-xl text-lg focus:outline-none focus:ring-2 focus:ring-[#8b5cf6] placeholder-gray-400"
             maxLength={15}
           />
@@ -129,7 +121,7 @@ export default function Lobby() {
           }`}
         >
           <span className="text-2xl">»</span>
-          Play
+          Oyna
         </button>
 
         {/* Action Buttons */}
@@ -138,13 +130,13 @@ export default function Lobby() {
             onClick={() => setShowRooms(true)}
             className="bg-[#252035] hover:bg-[#3d3654] border border-[#3d3654] text-white px-6 py-3 rounded-xl font-medium transition-all flex items-center gap-2"
           >
-            👥 All rooms
+            👥 Bütün otaqlar
           </button>
           <button 
             onClick={handleCreatePrivate}
             className="bg-[#252035] hover:bg-[#3d3654] border border-[#3d3654] text-white px-6 py-3 rounded-xl font-medium transition-all flex items-center gap-2"
           >
-            🔑 Create a private game
+            🔑 Gizli oyun yarat
           </button>
         </div>
       </main>

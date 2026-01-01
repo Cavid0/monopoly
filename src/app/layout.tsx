@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Monopoly Online",
-  description: "Play Monopoly online with friends",
+  title: "RichUp.io - Online Monopoly",
+  description: "Play Monopoly online with friends - Real-time multiplayer board game",
 };
 
 export default function RootLayout({
