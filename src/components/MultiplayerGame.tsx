@@ -145,9 +145,9 @@ function MultiplayerLobby() {
         {/* Logo */}
         <div className="text-6xl mb-6">🎲</div>
         <h1 className="text-5xl md:text-6xl font-bold mb-2 tracking-wide">
-          <span className="text-white">RICH</span>
-          <span className="text-[#8b5cf6]">UP</span>
-          <span className="text-gray-400">.IO</span>
+          <span className="text-white">MONO</span>
+          <span className="text-[#8b5cf6]">POLY</span>
+          <span className="text-gray-400">.AZ</span>
         </h1>
         <p className="text-[#8b5cf6] text-lg mb-10">Real-time Multiplayer</p>
 
@@ -281,9 +281,9 @@ function ColorSelection() {
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold mb-2">
-            <span className="text-white">RICH</span>
-            <span className="text-[#8b5cf6]">UP</span>
-            <span className="text-gray-400">.IO</span>
+            <span className="text-white">MONO</span>
+            <span className="text-[#8b5cf6]">POLY</span>
+            <span className="text-gray-400">.AZ</span>
           </h1>
           <p className="text-gray-400">Rəng seçin və hazır olun!</p>
         </div>
@@ -891,9 +891,9 @@ function GameScreen() {
         {/* Logo */}
         <div className="p-4 flex items-center gap-3">
           <h1 className="text-xl font-bold">
-            <span className="text-white">RICH</span>
-            <span className="text-[#8b5cf6]">UP</span>
-            <span className="text-gray-500">.IO</span>
+            <span className="text-white">MONO</span>
+            <span className="text-[#8b5cf6]">POLY</span>
+            <span className="text-gray-500">.AZ</span>
           </h1>
           <div className="flex items-center gap-2 ml-auto">
             <button className="text-gray-400 hover:text-white">❓</button>

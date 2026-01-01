@@ -46,7 +46,7 @@ export default function HomePage() {
 
       {/* Footer */}
       <footer className="fixed bottom-4 text-gray-500 text-sm">
-        © 2025 RichUp.io - Pulsuz Onlayn Monopoly
+        © 2025 Monopoly.AZ - Pulsuz Onlayn Monopoly
       </footer>
     </div>
   );
