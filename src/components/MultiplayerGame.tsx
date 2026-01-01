@@ -1305,9 +1305,19 @@ function GameBoardRichup({ gameState, playerId, currentPlayer }: GameBoardRichup
     // Regular cells
     const content = (
       <div className="w-full h-full flex flex-col" style={isVertical ? { transform: isFlipped ? 'rotate(-90deg)' : 'rotate(90deg)' } : (isFlipped ? { flexDirection: 'column-reverse' } : {})}>
-        {/* Color bar */}
+        {/* Color bar with houses */}
         {groupColor && (
-          <div className="w-full h-2 flex-shrink-0" style={{ background: groupColor }} />
+          <div className="w-full h-2 flex-shrink-0 relative flex items-center justify-center" style={{ background: groupColor }}>
+            {/* Houses indicator */}
+            {property?.houses > 0 && property.houses < 5 && (
+              <div className="flex gap-0.5">
+                {Array.from({ length: property.houses }).map((_, i) => (
+                  <span key={i} className="text-[6px]">🏠</span>
+                ))}
+              </div>
+            )}
+            {property?.houses === 5 && <span className="text-[8px]">🏨</span>}
+          </div>
         )}
         
         {/* Content */}
