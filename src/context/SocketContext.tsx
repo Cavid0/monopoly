@@ -87,6 +87,9 @@ interface SocketContextType {
   mortgageProperty: (propertyId: number) => void;
   unmortgageProperty: (propertyId: number) => void;
   
+  // Bankruptcy
+  declareBankruptcy: () => void;
+  
   // Chat
   sendMessage: (message: string) => void;
   
@@ -414,6 +417,14 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   }, [socket]);
 
   // ===========================================================================
+  // BANKRUPTCY
+  // ===========================================================================
+
+  const declareBankruptcy = useCallback(() => {
+    socket?.emit('game:declareBankruptcy');
+  }, [socket]);
+
+  // ===========================================================================
   // CHAT
   // ===========================================================================
 
@@ -506,6 +517,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     sellHouse,
     mortgageProperty,
     unmortgageProperty,
+    declareBankruptcy,
     sendMessage,
     getPropertyOwner,
     canBuildHouse,

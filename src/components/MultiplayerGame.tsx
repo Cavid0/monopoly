@@ -4,6 +4,61 @@ import { useState, useEffect } from 'react';
 import { useSocket } from '@/context/SocketContext';
 import { PLAYER_COLORS } from '@/types/socket';
 
+// Board data for property display
+const BOARD_DATA: Record<number, { flag?: string; name: string; price?: number; type: string; group?: string }> = {
+  0: { name: 'START', type: 'corner' },
+  1: { flag: '🇧🇷', name: 'Salvador', price: 60, type: 'property', group: 'brown' },
+  2: { name: 'Treasure', type: 'chest' },
+  3: { flag: '🇧🇷', name: 'Rio', price: 60, type: 'property', group: 'brown' },
+  4: { name: 'Income Tax', type: 'tax' },
+  5: { name: 'TLV Airport', price: 200, type: 'railroad' },
+  6: { flag: '🇮🇱', name: 'Tel Aviv', price: 100, type: 'property', group: 'lightBlue' },
+  7: { name: 'Surprise', type: 'chance' },
+  8: { flag: '🇮🇱', name: 'Haifa', price: 100, type: 'property', group: 'lightBlue' },
+  9: { flag: '🇮🇱', name: 'Jerusalem', price: 120, type: 'property', group: 'lightBlue' },
+  10: { name: 'In Prison', type: 'corner' },
+  11: { flag: '🇮🇹', name: 'Venice', price: 140, type: 'property', group: 'pink' },
+  12: { name: 'Electric Company', price: 150, type: 'utility' },
+  13: { flag: '🇮🇹', name: 'Milan', price: 140, type: 'property', group: 'pink' },
+  14: { flag: '🇮🇹', name: 'Rome', price: 160, type: 'property', group: 'pink' },
+  15: { name: 'MUC Airport', price: 200, type: 'railroad' },
+  16: { flag: '🇩🇪', name: 'Frankfurt', price: 180, type: 'property', group: 'orange' },
+  17: { name: 'Treasure', type: 'chest' },
+  18: { flag: '🇩🇪', name: 'Munich', price: 180, type: 'property', group: 'orange' },
+  19: { flag: '🇩🇪', name: 'Berlin', price: 200, type: 'property', group: 'orange' },
+  20: { name: 'Vacation', type: 'corner' },
+  21: { flag: '🇨🇳', name: 'Shenzhen', price: 220, type: 'property', group: 'red' },
+  22: { name: 'Surprise', type: 'chance' },
+  23: { flag: '🇨🇳', name: 'Beijing', price: 220, type: 'property', group: 'red' },
+  24: { flag: '🇨🇳', name: 'Shanghai', price: 240, type: 'property', group: 'red' },
+  25: { name: 'CDG Airport', price: 200, type: 'railroad' },
+  26: { flag: '🇫🇷', name: 'Lyon', price: 260, type: 'property', group: 'yellow' },
+  27: { flag: '🇫🇷', name: 'Toulouse', price: 260, type: 'property', group: 'yellow' },
+  28: { name: 'Water Company', price: 150, type: 'utility' },
+  29: { flag: '🇫🇷', name: 'Paris', price: 280, type: 'property', group: 'yellow' },
+  30: { name: 'Go to prison', type: 'corner' },
+  31: { flag: '🇬🇧', name: 'Liverpool', price: 300, type: 'property', group: 'green' },
+  32: { flag: '🇬🇧', name: 'Manchester', price: 300, type: 'property', group: 'green' },
+  33: { name: 'Treasure', type: 'chest' },
+  34: { flag: '🇬🇧', name: 'London', price: 320, type: 'property', group: 'green' },
+  35: { name: 'JFK Airport', price: 200, type: 'railroad' },
+  36: { name: 'Surprise', type: 'chance' },
+  37: { flag: '🇺🇸', name: 'San Francisco', price: 350, type: 'property', group: 'blue' },
+  38: { name: 'Luxury Tax', type: 'tax' },
+  39: { flag: '🇺🇸', name: 'New York', price: 400, type: 'property', group: 'blue' },
+};
+
+const GROUP_COLORS: Record<string, string> = {
+  brown: '#8B6914',
+  lightBlue: '#5BC0DE',
+  pink: '#E91E8C',
+  orange: '#FF8C00',
+  red: '#DC143C',
+  yellow: '#D4AF37',
+  green: '#228B22',
+  blue: '#0066CC',
+};
+
 // =============================================================================
 // MULTIPLAYER LOBBY
 // =============================================================================
@@ -367,7 +422,7 @@ function ColorSelection() {
 }
 
 // =============================================================================
-// GAME SCREEN
+// GAME SCREEN - RICHUP.IO STYLE
 // =============================================================================
 
 function GameScreen() {
@@ -377,6 +432,7 @@ function GameScreen() {
     currentPlayer,
     isMyTurn,
     lastDiceRoll,
+    roomCode,
     rollDice,
     buyProperty,
     declineProperty,
@@ -386,14 +442,30 @@ function GameScreen() {
     chatMessages,
     sendMessage,
     getPropertyOwner,
+    declareBankruptcy,
   } = useSocket();
 
   const [chatInput, setChatInput] = useState('');
+  const [copied, setCopied] = useState(false);
+  const [showTradeModal, setShowTradeModal] = useState(false);
+  const [diceAnimating, setDiceAnimating] = useState(false);
+  const [animatedDice, setAnimatedDice] = useState<[number, number]>([1, 1]);
 
   if (!gameState) return null;
 
   const currentTurnPlayer = gameState.players.find(p => p.id === gameState.currentPlayerId);
   const landedProperty = gameState.properties[currentPlayer?.position || 0];
+  const myProperties = gameState.properties.filter(p => p.ownerId === playerId);
+
+  const roomLink = typeof window !== 'undefined'
+    ? `${window.location.origin}/room/${roomCode}`
+    : '';
+
+  const copyLink = () => {
+    navigator.clipboard.writeText(roomLink);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
@@ -401,6 +473,56 @@ function GameScreen() {
       sendMessage(chatInput.trim());
       setChatInput('');
     }
+  };
+
+  const handleRollDice = () => {
+    setDiceAnimating(true);
+    // Animate dice for 1 second
+    const animationInterval = setInterval(() => {
+      setAnimatedDice([
+        Math.floor(Math.random() * 6) + 1,
+        Math.floor(Math.random() * 6) + 1
+      ]);
+    }, 100);
+
+    setTimeout(() => {
+      clearInterval(animationInterval);
+      setDiceAnimating(false);
+      rollDice();
+    }, 1000);
+  };
+
+  // Dice face rendering
+  const renderDiceFace = (value: number) => {
+    const dots: Record<number, string[]> = {
+      1: ['center'],
+      2: ['top-right', 'bottom-left'],
+      3: ['top-right', 'center', 'bottom-left'],
+      4: ['top-left', 'top-right', 'bottom-left', 'bottom-right'],
+      5: ['top-left', 'top-right', 'center', 'bottom-left', 'bottom-right'],
+      6: ['top-left', 'top-right', 'middle-left', 'middle-right', 'bottom-left', 'bottom-right'],
+    };
+
+    const positions: Record<string, string> = {
+      'top-left': 'top-2 left-2',
+      'top-right': 'top-2 right-2',
+      'middle-left': 'top-1/2 -translate-y-1/2 left-2',
+      'middle-right': 'top-1/2 -translate-y-1/2 right-2',
+      'center': 'top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2',
+      'bottom-left': 'bottom-2 left-2',
+      'bottom-right': 'bottom-2 right-2',
+    };
+
+    return (
+      <div className={`w-20 h-20 bg-white rounded-xl relative shadow-lg ${diceAnimating ? 'animate-bounce' : ''}`}>
+        {dots[value]?.map((pos, i) => (
+          <div
+            key={i}
+            className={`absolute w-3 h-3 bg-[#1a1625] rounded-full ${positions[pos]}`}
+          />
+        ))}
+      </div>
+    );
   };
 
   // Game ended
@@ -429,233 +551,480 @@ function GameScreen() {
     );
   }
 
+  const displayDice = diceAnimating ? animatedDice : (lastDiceRoll || [1, 1]);
+
   return (
     <div className="min-h-screen bg-[#1a1625] text-white flex">
-      {/* Left Panel - Game Info */}
-      <div className="w-80 bg-[#252035] border-r border-[#3d3654] flex flex-col">
-        {/* Header */}
-        <div className="p-4 border-b border-[#3d3654]">
+      {/* ==================== LEFT PANEL ==================== */}
+      <div className="w-72 bg-[#1e1a2e] flex flex-col border-r border-[#2d2640]">
+        {/* Logo */}
+        <div className="p-4 flex items-center gap-3">
           <h1 className="text-xl font-bold">
             <span className="text-white">RICH</span>
             <span className="text-[#8b5cf6]">UP</span>
-            <span className="text-gray-400">.IO</span>
+            <span className="text-gray-500">.IO</span>
           </h1>
-          <p className="text-xs text-gray-500">Otaq: {gameState.roomCode}</p>
-        </div>
-
-        {/* Turn Indicator */}
-        <div className="p-4 border-b border-[#3d3654]">
-          <div className="flex items-center gap-3">
-            <div
-              className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold"
-              style={{ backgroundColor: currentTurnPlayer?.color || '#666' }}
-            >
-              {currentTurnPlayer?.name.charAt(0).toUpperCase()}
-            </div>
-            <div>
-              <p className="text-white font-medium">
-                {currentTurnPlayer?.name}{currentTurnPlayer?.id === playerId ? ' (Siz)' : ''}
-              </p>
-              <p className="text-xs text-gray-400">
-                {isMyTurn ? 'Sizin növbəniz!' : 'Gözləyin...'}
-              </p>
-            </div>
+          <div className="flex items-center gap-2 ml-auto">
+            <button className="text-gray-400 hover:text-white">❓</button>
+            <button className="text-gray-400 hover:text-white">🔊</button>
+            <button className="text-gray-400 hover:text-white">🔍</button>
           </div>
         </div>
 
-        {/* Dice Display */}
-        {lastDiceRoll && (
-          <div className="p-4 border-b border-[#3d3654] text-center">
-            <div className="flex items-center justify-center gap-4">
-              <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-2xl font-bold text-[#1a1625]">
-                {lastDiceRoll[0]}
-              </div>
-              <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-2xl font-bold text-[#1a1625]">
-                {lastDiceRoll[1]}
-              </div>
+        {/* Share Game */}
+        <div className="px-4 pb-4">
+          <div className="bg-[#252035] rounded-xl p-3 border border-[#3d3654]">
+            <div className="flex items-center gap-2 text-sm text-gray-400 mb-2">
+              <span>ℹ️</span>
+              <span>Share this game</span>
             </div>
-            <p className="text-sm text-gray-400 mt-2">
-              Cəmi: {lastDiceRoll[0] + lastDiceRoll[1]}
-              {lastDiceRoll[0] === lastDiceRoll[1] && <span className="text-yellow-400"> (CÜT!)</span>}
-            </p>
-          </div>
-        )}
-
-        {/* Players List */}
-        <div className="flex-1 p-4 overflow-auto">
-          <h3 className="text-gray-400 text-sm mb-3">Oyunçular</h3>
-          <div className="space-y-2">
-            {gameState.players.map(player => (
-              <div
-                key={player.id}
-                className={`p-3 rounded-xl ${
-                  player.isBankrupt
-                    ? 'bg-red-500/10 opacity-50'
-                    : player.id === gameState.currentPlayerId
-                    ? 'bg-[#8b5cf6]/20 border border-[#8b5cf6]/50'
-                    : 'bg-[#1a1625]'
-                }`}
+            <div className="flex items-center gap-2">
+              <div className="flex-1 bg-[#1a1625] rounded-lg px-3 py-2 text-xs text-gray-400 truncate font-mono">
+                {roomLink}
+              </div>
+              <button
+                onClick={copyLink}
+                className="bg-[#3d3654] hover:bg-[#4d4670] px-3 py-2 rounded-lg text-sm transition-all"
               >
-                <div className="flex items-center gap-3">
-                  <div
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold"
-                    style={{ backgroundColor: player.color }}
-                  >
-                    {player.name.charAt(0).toUpperCase()}
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-white text-sm font-medium">{player.name}</p>
-                    <p className="text-green-400 text-xs">${player.money.toLocaleString()}</p>
-                  </div>
-                  {player.inJail && <span className="text-lg">🔒</span>}
-                  {player.isBankrupt && <span className="text-lg">💀</span>}
+                {copied ? '✓' : '📋'} Copy
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* View Room Settings */}
+        <div className="px-4 pb-4">
+          <button className="flex items-center gap-2 text-gray-400 hover:text-white text-sm">
+            ⚙️ View room settings
+          </button>
+        </div>
+
+        {/* Spacer */}
+        <div className="flex-1 flex items-center justify-center">
+          <span className="text-gray-600 text-sm">advertisement</span>
+        </div>
+
+        {/* Chat Section */}
+        <div className="border-t border-[#2d2640]">
+          <div className="flex items-center gap-2 p-3 text-gray-400">
+            <button className="hover:text-white">🔊</button>
+            <button className="hover:text-white">⚙️</button>
+            <span className="font-medium text-white ml-2">Chat</span>
+          </div>
+          
+          {/* Chat Messages */}
+          <div className="h-40 overflow-auto px-3 space-y-1">
+            {chatMessages.slice(-15).map((msg, i) => (
+              <div key={i} className="flex items-start gap-2 text-xs">
+                <div
+                  className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0"
+                  style={{ backgroundColor: msg.playerColor || '#8b5cf6' }}
+                >
+                  {msg.playerName?.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <span className="text-gray-400">{msg.playerName}</span>
+                  <p className="text-gray-300">{msg.message}</p>
                 </div>
               </div>
             ))}
           </div>
-        </div>
 
-        {/* Chat */}
-        <div className="h-48 border-t border-[#3d3654] flex flex-col">
-          <div className="flex-1 p-2 overflow-auto">
-            {chatMessages.slice(-10).map((msg, i) => (
-              <div key={i} className="text-xs mb-1">
-                <span className="text-[#8b5cf6] font-medium">{msg.playerName}:</span>{' '}
-                <span className="text-gray-300">{msg.message}</span>
-              </div>
-            ))}
+          {/* Typing Indicator */}
+          <div className="px-3 py-1 text-xs text-gray-500 flex items-center gap-1">
+            <span className="animate-pulse">●</span>
+            <span>...</span>
           </div>
-          <form onSubmit={handleSendMessage} className="p-2 border-t border-[#3d3654]">
-            <input
-              type="text"
-              value={chatInput}
-              onChange={(e) => setChatInput(e.target.value)}
-              placeholder="Mesaj yazın..."
-              className="w-full bg-[#1a1625] text-white text-sm px-3 py-2 rounded-lg focus:outline-none"
-              maxLength={200}
-            />
+
+          {/* Chat Input */}
+          <form onSubmit={handleSendMessage} className="p-3 border-t border-[#2d2640]">
+            <div className="flex items-center gap-2 bg-[#252035] rounded-lg px-3 py-2">
+              <input
+                type="text"
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                placeholder="Say something..."
+                className="flex-1 bg-transparent text-sm text-white placeholder-gray-500 focus:outline-none"
+                maxLength={200}
+              />
+              <button type="submit" className="text-gray-400 hover:text-white">
+                ➤
+              </button>
+            </div>
           </form>
         </div>
       </div>
 
-      {/* Center - Game Board */}
-      <div className="flex-1 flex flex-col items-center justify-center p-8">
-        {/* Current Position Info */}
-        <div className="bg-[#252035] rounded-xl p-6 mb-8 border border-[#3d3654] text-center">
-          <p className="text-gray-400 mb-2">Mövqe: {currentPlayer?.position}</p>
-          <h2 className="text-2xl font-bold text-white mb-2">{landedProperty?.name}</h2>
-          {landedProperty?.type !== 'special' && (
-            <div className="flex items-center justify-center gap-4">
-              <span className="text-gray-400">Qiyməti: ${landedProperty?.price}</span>
-              {landedProperty?.ownerId && (
-                <span className="text-[#8b5cf6]">
-                  Sahibi: {getPropertyOwner(landedProperty.id)?.name}
-                </span>
+      {/* ==================== CENTER - GAME BOARD ==================== */}
+      <div className="flex-1 flex flex-col items-center justify-center p-4 relative">
+        {/* Game Board */}
+        <GameBoardRichup 
+          gameState={gameState} 
+          playerId={playerId}
+          currentPlayer={currentPlayer}
+        />
+
+        {/* Dice and Roll Button - Center Overlay */}
+        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+          {/* Dice Display */}
+          <div className="flex items-center gap-6 mb-6 pointer-events-auto">
+            {renderDiceFace(displayDice[0])}
+            {renderDiceFace(displayDice[1])}
+          </div>
+
+          {/* Roll Button */}
+          {isMyTurn && gameState.turnPhase === 'roll' && !currentPlayer?.inJail && (
+            <button
+              onClick={handleRollDice}
+              disabled={diceAnimating}
+              className="bg-[#8b5cf6] hover:bg-[#7c3aed] text-white px-8 py-4 rounded-xl font-bold text-lg shadow-lg shadow-[#8b5cf6]/40 flex items-center gap-3 pointer-events-auto disabled:opacity-50"
+            >
+              <span className="text-2xl">🎲</span>
+              Roll the dice
+            </button>
+          )}
+
+          {/* Jail Options */}
+          {isMyTurn && gameState.turnPhase === 'jail-decision' && currentPlayer?.inJail && (
+            <div className="flex gap-3 pointer-events-auto">
+              <button
+                onClick={handleRollDice}
+                disabled={diceAnimating}
+                className="bg-[#8b5cf6] hover:bg-[#7c3aed] text-white px-6 py-3 rounded-xl font-bold"
+              >
+                🎲 Cüt üçün at
+              </button>
+              <button
+                onClick={payJailFine}
+                disabled={(currentPlayer?.money || 0) < 50}
+                className="bg-yellow-500 hover:bg-yellow-600 text-white px-6 py-3 rounded-xl font-bold disabled:opacity-50"
+              >
+                💰 $50 ödə
+              </button>
+              {(currentPlayer?.jailFreeCards || 0) > 0 && (
+                <button
+                  onClick={useJailCard}
+                  className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-xl font-bold"
+                >
+                  🃏 Kart
+                </button>
               )}
             </div>
           )}
+
+          {/* Buy Property */}
+          {isMyTurn && gameState.turnPhase === 'action' && landedProperty && !landedProperty.ownerId && landedProperty.type !== 'special' && (
+            <div className="flex gap-3 pointer-events-auto">
+              <button
+                onClick={buyProperty}
+                disabled={(currentPlayer?.money || 0) < landedProperty.price}
+                className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-xl font-bold disabled:opacity-50"
+              >
+                🏠 Al (${landedProperty.price})
+              </button>
+              <button
+                onClick={declineProperty}
+                className="bg-red-500 hover:bg-red-600 text-white px-6 py-3 rounded-xl font-bold"
+              >
+                ❌ Keç
+              </button>
+            </div>
+          )}
+
+          {/* End Turn */}
+          {isMyTurn && gameState.turnPhase === 'end' && (
+            <button
+              onClick={endTurn}
+              className="bg-[#8b5cf6] hover:bg-[#7c3aed] text-white px-8 py-4 rounded-xl font-bold text-lg pointer-events-auto"
+            >
+              ✓ Növbəni bitir
+            </button>
+          )}
+
+          {/* Game Log - Bottom */}
+          <div className="absolute bottom-4 text-center text-sm text-gray-400">
+            <p>Game started with a randomized players order. Good luck!</p>
+            {currentTurnPlayer && (
+              <p className="text-[#8b5cf6]">● {currentTurnPlayer.name} is playing</p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ==================== RIGHT PANEL ==================== */}
+      <div className="w-80 bg-[#1e1a2e] border-l border-[#2d2640] flex flex-col">
+        {/* Passing by indicator */}
+        <div className="p-4 border-b border-[#2d2640] text-center">
+          <span className="text-gray-500 text-sm">Passing by</span>
+        </div>
+
+        {/* Players List */}
+        <div className="p-4 space-y-2 border-b border-[#2d2640]">
+          {gameState.players.map(player => (
+            <div
+              key={player.id}
+              className={`flex items-center gap-3 p-2 rounded-lg ${
+                player.id === gameState.currentPlayerId ? 'bg-[#8b5cf6]/10' : ''
+              } ${player.isBankrupt ? 'opacity-50' : ''}`}
+            >
+              <div
+                className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm"
+                style={{ backgroundColor: player.color }}
+              >
+                {player.name.charAt(0).toUpperCase()}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-white font-medium text-sm truncate">
+                    {player.name}
+                  </span>
+                  {player.isHost && <span className="text-yellow-400 text-xs">👑</span>}
+                  {player.inJail && <span className="text-gray-400 text-xs">🔒</span>}
+                </div>
+              </div>
+              <span className={`text-sm font-bold ${player.money < 0 ? 'text-red-400' : 'text-white'}`}>
+                ${player.money.toLocaleString()}
+              </span>
+            </div>
+          ))}
         </div>
 
         {/* Action Buttons */}
-        {isMyTurn && (
-          <div className="flex gap-4 flex-wrap justify-center">
-            {gameState.turnPhase === 'roll' && !currentPlayer?.inJail && (
-              <button
-                onClick={rollDice}
-                className="bg-[#8b5cf6] hover:bg-[#7c3aed] text-white px-8 py-4 rounded-xl font-bold text-lg shadow-lg shadow-[#8b5cf6]/30"
-              >
-                🎲 Zər at
-              </button>
-            )}
+        <div className="p-4 flex gap-2 border-b border-[#2d2640]">
+          <button className="flex-1 bg-[#252035] hover:bg-[#3d3654] text-gray-400 py-2 px-4 rounded-lg text-sm transition-all">
+            👥 Votekick
+          </button>
+          <button 
+            onClick={declareBankruptcy}
+            className="bg-red-500/20 hover:bg-red-500/30 text-red-400 py-2 px-4 rounded-lg text-sm flex items-center gap-1 transition-all"
+          >
+            ▶ Bankrupt
+          </button>
+        </div>
 
-            {gameState.turnPhase === 'jail-decision' && currentPlayer?.inJail && (
-              <>
-                <button
-                  onClick={rollDice}
-                  className="bg-[#8b5cf6] hover:bg-[#7c3aed] text-white px-6 py-3 rounded-xl font-bold"
+        {/* Trades Section */}
+        <div className="p-4 border-b border-[#2d2640]">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-gray-400 text-sm">Trades</span>
+            <button
+              onClick={() => setShowTradeModal(true)}
+              className="bg-green-500 hover:bg-green-600 text-white px-4 py-1.5 rounded-lg text-sm flex items-center gap-1"
+            >
+              ➕ Create
+            </button>
+          </div>
+        </div>
+
+        {/* My Properties */}
+        <div className="flex-1 p-4 overflow-auto">
+          <h3 className="text-gray-400 text-sm mb-3">My properties ({myProperties.length})</h3>
+          <div className="space-y-2">
+            {myProperties.map(prop => {
+              const boardData = BOARD_DATA[prop.id];
+              const groupColor = boardData?.group ? GROUP_COLORS[boardData.group] : '#666';
+              
+              return (
+                <div
+                  key={prop.id}
+                  className="bg-[#252035] rounded-lg p-3 flex items-center gap-3"
                 >
-                  🎲 Cüt üçün zər at
-                </button>
-                <button
-                  onClick={payJailFine}
-                  disabled={(currentPlayer?.money || 0) < 50}
-                  className="bg-yellow-500 hover:bg-yellow-600 text-white px-6 py-3 rounded-xl font-bold disabled:opacity-50"
-                >
-                  💰 $50 ödə
-                </button>
-                {(currentPlayer?.jailFreeCards || 0) > 0 && (
-                  <button
-                    onClick={useJailCard}
-                    className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-xl font-bold"
+                  <div
+                    className="w-8 h-10 rounded flex items-center justify-center text-lg"
+                    style={{ backgroundColor: groupColor }}
                   >
-                    🃏 Kart istifadə et
-                  </button>
-                )}
-              </>
+                    {boardData?.flag || '🏠'}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white text-sm font-medium truncate">{prop.name}</p>
+                    <p className="text-gray-500 text-xs">${prop.price}</p>
+                  </div>
+                  {prop.houses > 0 && (
+                    <span className="text-yellow-400 text-xs">
+                      {prop.houses === 5 ? '🏨' : '🏠'.repeat(prop.houses)}
+                    </span>
+                  )}
+                  {prop.isMortgaged && (
+                    <span className="text-red-400 text-xs">⚠️</span>
+                  )}
+                </div>
+              );
+            })}
+            {myProperties.length === 0 && (
+              <p className="text-gray-600 text-center py-8 text-sm">No properties yet</p>
             )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
-            {gameState.turnPhase === 'action' && landedProperty && !landedProperty.ownerId && (
-              <>
-                <button
-                  onClick={buyProperty}
-                  disabled={(currentPlayer?.money || 0) < landedProperty.price}
-                  className="bg-green-500 hover:bg-green-600 text-white px-8 py-4 rounded-xl font-bold text-lg disabled:opacity-50"
-                >
-                  🏠 Al (${landedProperty.price})
-                </button>
-                <button
-                  onClick={declineProperty}
-                  className="bg-red-500 hover:bg-red-600 text-white px-8 py-4 rounded-xl font-bold text-lg"
-                >
-                  ❌ Keç (Hərrac)
-                </button>
-              </>
-            )}
+// =============================================================================
+// GAME BOARD COMPONENT - RICHUP STYLE
+// =============================================================================
 
-            {gameState.turnPhase === 'end' && (
-              <button
-                onClick={endTurn}
-                className="bg-[#8b5cf6] hover:bg-[#7c3aed] text-white px-8 py-4 rounded-xl font-bold text-lg"
-              >
-                ✓ Növbəni bitir
-              </button>
-            )}
+interface GameBoardRichupProps {
+  gameState: any;
+  playerId: string | null;
+  currentPlayer: any;
+}
+
+function GameBoardRichup({ gameState, playerId, currentPlayer }: GameBoardRichupProps) {
+  const getPlayersOnPosition = (position: number) => {
+    return gameState.players.filter((p: any) => p.position === position && !p.isBankrupt);
+  };
+
+  // Board dimensions
+  const boardSize = 600;
+  const cornerSize = 60;
+  const cellCount = 9;
+  const cellWidth = (boardSize - 2 * cornerSize) / cellCount;
+  const cellHeight = cornerSize;
+
+  const renderCell = (posId: number, style: React.CSSProperties, isVertical = false, isFlipped = false) => {
+    const data = BOARD_DATA[posId];
+    if (!data) return null;
+
+    const property = gameState.properties.find((p: any) => p.id === posId);
+    const players = getPlayersOnPosition(posId);
+    const isCurrentPosition = currentPlayer?.position === posId;
+    const groupColor = data.group ? GROUP_COLORS[data.group] : null;
+    const owner = property?.ownerId ? gameState.players.find((p: any) => p.id === property.ownerId) : null;
+
+    // Corner cells
+    if (data.type === 'corner') {
+      return (
+        <div
+          key={posId}
+          className={`absolute flex flex-col items-center justify-center ${isCurrentPosition ? 'ring-2 ring-[#8b5cf6]' : ''}`}
+          style={{
+            ...style,
+            background: posId === 0 
+              ? 'linear-gradient(135deg, #2d5a3d 0%, #1a3d2a 100%)' 
+              : 'linear-gradient(135deg, #252035 0%, #1a1625 100%)',
+            borderRadius: 4,
+          }}
+        >
+          {posId === 0 && <span className="text-2xl">🐦</span>}
+          {posId === 10 && <span className="text-2xl">⛓️</span>}
+          {posId === 20 && <span className="text-2xl">🏖️</span>}
+          {posId === 30 && <span className="text-2xl">👮</span>}
+          <span className="text-[8px] text-gray-400 mt-1">{data.name}</span>
+          
+          {players.length > 0 && (
+            <div className="absolute bottom-1 flex gap-0.5">
+              {players.slice(0, 4).map((p: any) => (
+                <div key={p.id} className="w-3 h-3 rounded-full border border-white" style={{ backgroundColor: p.color }} />
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // Regular cells
+    const content = (
+      <div className="w-full h-full flex flex-col" style={isVertical ? { transform: isFlipped ? 'rotate(-90deg)' : 'rotate(90deg)' } : (isFlipped ? { flexDirection: 'column-reverse' } : {})}>
+        {/* Color bar */}
+        {groupColor && (
+          <div className="w-full h-2 flex-shrink-0" style={{ background: groupColor }} />
+        )}
+        
+        {/* Content */}
+        <div className="flex-1 flex flex-col items-center justify-center p-0.5">
+          {data.flag && <span className="text-sm">{data.flag}</span>}
+          {data.type === 'railroad' && <span className="text-sm">✈️</span>}
+          {data.type === 'utility' && data.name.includes('Electric') && <span className="text-sm">⚡</span>}
+          {data.type === 'utility' && data.name.includes('Water') && <span className="text-sm">💧</span>}
+          {data.type === 'chest' && <span className="text-sm">📦</span>}
+          {data.type === 'chance' && <span className="text-sm">❓</span>}
+          {data.type === 'tax' && <span className="text-sm">💵</span>}
+          
+          <span className="text-[7px] text-gray-300 text-center leading-tight truncate w-full">{data.name}</span>
+          {data.price && <span className="text-[8px] text-gray-400">{data.price}$</span>}
+        </div>
+      </div>
+    );
+
+    return (
+      <div
+        key={posId}
+        className={`absolute overflow-hidden ${isCurrentPosition ? 'ring-2 ring-[#8b5cf6] z-10' : ''}`}
+        style={{
+          ...style,
+          background: 'linear-gradient(180deg, #252035 0%, #1a1625 100%)',
+          borderRadius: 3,
+        }}
+      >
+        {content}
+        
+        {/* Owner indicator */}
+        {owner && (
+          <div
+            className="absolute top-1 right-1 w-2 h-2 rounded-full border border-white"
+            style={{ backgroundColor: owner.color }}
+          />
+        )}
+        
+        {/* Players */}
+        {players.length > 0 && (
+          <div className="absolute bottom-0.5 left-1/2 -translate-x-1/2 flex gap-0.5">
+            {players.slice(0, 3).map((p: any) => (
+              <div key={p.id} className="w-2.5 h-2.5 rounded-full border border-white" style={{ backgroundColor: p.color }} />
+            ))}
           </div>
         )}
       </div>
+    );
+  };
 
-      {/* Right Panel - Properties */}
-      <div className="w-80 bg-[#252035] border-l border-[#3d3654] p-4 overflow-auto">
-        <h3 className="text-white font-semibold mb-4">Mülkləriniz</h3>
-        <div className="space-y-2">
-          {gameState.properties
-            .filter(p => p.ownerId === playerId)
-            .map(prop => (
-              <div
-                key={prop.id}
-                className="bg-[#1a1625] rounded-lg p-3"
-              >
-                <div
-                  className="h-2 rounded-t mb-2"
-                  style={{ backgroundColor: prop.color }}
-                />
-                <p className="text-white text-sm font-medium truncate">{prop.name}</p>
-                <div className="flex justify-between text-xs">
-                  <span className="text-gray-400">${prop.price}</span>
-                  <span className="text-yellow-400">
-                    {prop.houses === 5 ? '🏨' : '🏠'.repeat(prop.houses)}
-                  </span>
-                </div>
-                {prop.isMortgaged && (
-                  <span className="text-xs text-red-400">Girovda</span>
-                )}
-              </div>
-            ))}
-          {gameState.properties.filter(p => p.ownerId === playerId).length === 0 && (
-            <p className="text-gray-500 text-center py-8">Hələ mülkünüz yoxdur</p>
-          )}
-        </div>
-      </div>
+  return (
+    <div
+      className="relative rounded-xl"
+      style={{
+        width: boardSize,
+        height: boardSize,
+        background: '#0f0c18',
+        border: '2px solid #2d2640',
+      }}
+    >
+      {/* Corners */}
+      {renderCell(0, { top: 0, left: 0, width: cornerSize, height: cornerSize })}
+      {renderCell(10, { top: 0, right: 0, width: cornerSize, height: cornerSize })}
+      {renderCell(20, { bottom: 0, right: 0, width: cornerSize, height: cornerSize })}
+      {renderCell(30, { bottom: 0, left: 0, width: cornerSize, height: cornerSize })}
+
+      {/* Top row (1-9) */}
+      {Array.from({ length: 9 }, (_, i) => renderCell(i + 1, {
+        top: 0,
+        left: cornerSize + (i * cellWidth),
+        width: cellWidth - 1,
+        height: cellHeight,
+      }))}
+
+      {/* Right column (11-19) */}
+      {Array.from({ length: 9 }, (_, i) => renderCell(i + 11, {
+        top: cornerSize + (i * cellWidth),
+        right: 0,
+        width: cornerSize,
+        height: cellWidth - 1,
+      }, true, true))}
+
+      {/* Bottom row (21-29) */}
+      {Array.from({ length: 9 }, (_, i) => renderCell(21 + i, {
+        bottom: 0,
+        right: cornerSize + (i * cellWidth),
+        width: cellWidth - 1,
+        height: cellHeight,
+      }, false, true))}
+
+      {/* Left column (31-39) */}
+      {Array.from({ length: 9 }, (_, i) => renderCell(31 + i, {
+        bottom: cornerSize + (i * cellWidth),
+        left: 0,
+        width: cornerSize,
+        height: cellWidth - 1,
+      }, true, false))}
     </div>
   );
 }

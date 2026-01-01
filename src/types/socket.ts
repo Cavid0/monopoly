@@ -167,6 +167,7 @@ export interface ClientToServerEvents {
   'game:buyProperty': () => void;
   'game:declineProperty': () => void;
   'game:endTurn': () => void;
+  'game:declareBankruptcy': () => void;
   'jail:payFine': () => void;
   'jail:useCard': () => void;
   'jail:rollDice': () => void;
@@ -235,6 +236,7 @@ export interface ServerToClientEvents {
 export interface ChatMessage {
   playerId: string;
   playerName: string;
+  playerColor?: string;
   message: string;
   timestamp: number;
 }
